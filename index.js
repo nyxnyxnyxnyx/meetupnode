@@ -1,37 +1,39 @@
 var app = require('express')();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
-var data = require("./data.json");
 
 
 function emit(socket,msg){
-    socket.emit('message', msg);
+    socket.emit('writting',true);
+    setTimeout(()=> {
+        socket.emit('writting',false);
+        socket.emit('message',msg)
+    }                
+    ,2000)
 }
 
 io.on('connection', function(socket){
-    socket.count=0
-    emit(socket,data.messages[socket.count]);
+    console.log("usuario conectado")
+    
     socket.on('message', function(msg){
-        socket.count++;
-        switch (socket.count) {
-            case 1:
-            case 2:
-                emit(socket,data.messages[socket.count]);
-                break;
-            case 3:
-                user = msg.split("saluda a ")[1]?msg.split("saluda a ")[1]:"usuario";
-                emit(socket,data.messages[socket.count].replace("%usuario%",user));
-                socket.count++;
-                setTimeout(()=> emit(socket,data.messages[socket.count]),5000)
-               
-                break;        
-            default:
-                emit(socket,data.messages[5]);
-                break;
-        }
+        socket.broadcast.emit('message',{msg:msg,user:socket.user})
     });
-    socket.on('disconnect', function(){
 
+    socket.on('writting', function(state){
+        socket.broadcast.emit('writting',{state:state,user:socket.user})
+    });
+
+    socket.on('login',function(user){
+        user = user ? user : "usuario"
+        socket.user = user;
+        socket.emit('message',{msg:"Bienvenido a ZapWhat "+socket.user,user:"Zappy"})
+        socket.broadcast.emit('message',{msg:socket.user+" se acaba de conectar",user:"Zappy"})
+
+    })
+    
+    socket.on('disconnect', function(){
+        socket.broadcast.emit('message',{msg:socket.user+" se acaba de desconectar",user:"Zappy"})
+        console.log("usuario desconectado: "+socket.user)
     });
 });
 
